@@ -49,16 +49,24 @@ pub fn build_prompt(session: &Session, scope: CopyScope) -> Option<(String, Vec<
             ),
         };
         out.push_str(&format!(
-            "- {} ({})\n  Hunk: `{}`\n  Context: `{}`\n  Comment: {}\n",
+            "- {} ({})\n  Hunk: `{}`\n  Context: `{}`\n  Comment:\n{}\n",
             file,
             line,
             c.anchor.hunk_header,
             c.anchor.line_text,
-            c.body.replace('\n', "\n    ")
+            format_comment_body(&c.body)
         ));
     }
     Some((out, ids))
 }
+fn format_comment_body(body: &str) -> String {
+    body.trim_end()
+        .lines()
+        .map(|line| format!("    {line}"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 pub fn mark_copied(session: &mut Session, ids: &[String], scope: &str, prompt: &str) {
     for c in session.comments.values_mut() {
         if ids.contains(&c.id) && c.status == CommentStatus::Draft {
@@ -82,6 +90,26 @@ mod tests {
         diff::{DiffLine, LineKind},
         session::{LineAnchor, Session},
     };
+    #[test]
+    fn multiline_comments_render_as_an_indented_block_without_trailing_blank_lines() {
+        let mut s = Session::default();
+        let l = DiffLine {
+            kind: LineKind::Add,
+            old_lineno: None,
+            new_lineno: Some(3),
+            text: "new".into(),
+        };
+        s.upsert_comment(
+            LineAnchor::new("repo", "new.rs", "@@ -1 +1", &l),
+            "abcd\nefg\n\n".into(),
+        );
+
+        let (p, _) = build_prompt(&s, CopyScope::Uncopied).unwrap();
+
+        assert!(p.contains("  Comment:\n    abcd\n    efg\n"));
+        assert!(!p.contains("efg\n    \n"));
+    }
+
     #[test]
     fn prompt_group_and_mark() {
         let mut s = Session::default();
