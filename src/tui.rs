@@ -46,15 +46,7 @@ pub fn run(mut engine: ReviewEngine) -> Result<()> {
 }
 
 fn draw(f: &mut ratatui::Frame, engine: &ReviewEngine, app: &AppState) {
-    let constraints = if matches!(app.mode, Mode::Editing(_)) {
-        vec![
-            Constraint::Min(1),
-            Constraint::Length(6),
-            Constraint::Length(1),
-        ]
-    } else {
-        vec![Constraint::Min(1), Constraint::Length(1)]
-    };
+    let constraints = vec![Constraint::Min(1), Constraint::Length(1)];
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints(constraints)
@@ -65,7 +57,16 @@ fn draw(f: &mut ratatui::Frame, engine: &ReviewEngine, app: &AppState) {
         .iter()
         .enumerate()
         .map(|(i, r)| {
-            ListItem::new(row_line(r)).style(if i == app.cursor {
+            let row = if let Mode::Editing(buffer) = &app.mode {
+                if i == app.cursor {
+                    vec![row_line(r), editing_ghost_line(buffer)]
+                } else {
+                    vec![row_line(r)]
+                }
+            } else {
+                vec![row_line(r)]
+            };
+            ListItem::new(row).style(if i == app.cursor {
                 Style::default().add_modifier(Modifier::REVERSED)
             } else {
                 Style::default()
@@ -74,18 +75,17 @@ fn draw(f: &mut ratatui::Frame, engine: &ReviewEngine, app: &AppState) {
         .collect();
     if matches!(app.mode, Mode::Help) {
         f.render_widget(help_panel(), chunks[0]);
+    } else if app.sidebar {
+        f.render_widget(sidebar_panel(engine), chunks[0]);
+    } else if matches!(app.mode, Mode::CommentList { .. }) {
+        f.render_widget(comment_list_panel(engine), chunks[0]);
     } else {
         f.render_widget(
             List::new(items).block(Block::default().title("hawk").borders(Borders::ALL)),
             chunks[0],
         );
     }
-    let status_index = if let Mode::Editing(buffer) = &app.mode {
-        f.render_widget(comment_editor(buffer), chunks[1]);
-        2
-    } else {
-        1
-    };
+    let status_index = 1;
     let dirty = if engine.dirty {
         " | DIRTY: press r to reload"
     } else {
@@ -100,19 +100,66 @@ fn draw(f: &mut ratatui::Frame, engine: &ReviewEngine, app: &AppState) {
         chunks[status_index],
     );
 }
-fn comment_editor(buffer: &str) -> Paragraph<'_> {
+fn editing_ghost_line(buffer: &str) -> Line<'static> {
     let visible = if buffer.is_empty() {
-        "Type comment here. Esc saves, Ctrl-C saves, Backspace edits."
+        "  💬 Type comment here. Esc saves."
     } else {
-        buffer
+        return Line::from(vec![Span::styled(
+            format!("  💬 {buffer}"),
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::ITALIC),
+        )]);
     };
-    Paragraph::new(visible)
+    Line::from(vec![Span::styled(
+        visible,
+        Style::default()
+            .fg(Color::DarkGray)
+            .add_modifier(Modifier::ITALIC),
+    )])
+}
+
+fn sidebar_panel(engine: &ReviewEngine) -> Paragraph<'static> {
+    let mut out = String::from("Files\n\n");
+    for r in engine.document.rows() {
+        if let ReviewRow::File {
+            path,
+            added,
+            removed,
+            ..
+        } = r
+        {
+            out.push_str(&format!("{path}  +{added} -{removed}\n"));
+        }
+    }
+    Paragraph::new(out)
         .block(
             Block::default()
-                .title("Comment editor")
+                .title("File sidebar (e closes)")
                 .borders(Borders::ALL),
         )
-        .style(Style::default().fg(Color::Yellow))
+        .wrap(Wrap { trim: false })
+}
+
+fn comment_list_panel(engine: &ReviewEngine) -> Paragraph<'static> {
+    let mut out = String::from("Comments\n\n");
+    for c in engine.session.visible_comments() {
+        out.push_str(&format!(
+            "{}:{} — {}\n",
+            c.anchor.file,
+            c.anchor.new_line.or(c.anchor.old_line).unwrap_or(0),
+            c.body.replace('\n', " ")
+        ));
+    }
+    if engine.session.visible_comments().is_empty() {
+        out.push_str("No visible comments.\n");
+    }
+    Paragraph::new(out)
+        .block(
+            Block::default()
+                .title("Comment list (Esc closes)")
+                .borders(Borders::ALL),
+        )
         .wrap(Wrap { trim: false })
 }
 
@@ -167,6 +214,12 @@ fn row_line(r: &ReviewRow) -> Line<'static> {
                 Style::default().fg(c),
             )])
         }
+        ReviewRow::CommentGhost { body } => Line::from(vec![Span::styled(
+            format!("  💬 {}", body.replace('\n', " ⏎ ")),
+            Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::ITALIC),
+        )]),
         ReviewRow::Placeholder(s) => Line::from(format!("! {s}")),
     }
 }
@@ -249,7 +302,7 @@ mod tests {
     }
 
     #[test]
-    fn edit_mode_renders_comment_buffer() {
+    fn edit_mode_renders_comment_buffer_inline_below_current_line() {
         let e = eng();
         let mut a = AppState::default();
         a.mode = Mode::Editing("please fix this".into());
@@ -259,7 +312,7 @@ mod tests {
         terminal.draw(|f| draw(f, &e, &a)).unwrap();
 
         let rendered = format!("{:?}", terminal.backend().buffer());
-        assert!(rendered.contains("Comment editor"));
+        assert!(rendered.contains("💬"));
         assert!(rendered.contains("please fix this"));
     }
 }

@@ -37,10 +37,14 @@ pub fn build_prompt(session: &Session, scope: CopyScope) -> Option<(String, Vec<
         }
         ids.push(c.id.clone());
         let line = match c.anchor.side {
-            crate::diff::Side::Old => format!("old line {}", c.anchor.old_line.unwrap_or(0)),
-            crate::diff::Side::New => format!("new line {}", c.anchor.new_line.unwrap_or(0)),
+            crate::diff::Side::Old => {
+                format!("old line {} (removed)", c.anchor.old_line.unwrap_or(0))
+            }
+            crate::diff::Side::New => {
+                format!("new line {} (added)", c.anchor.new_line.unwrap_or(0))
+            }
             crate::diff::Side::Both => format!(
-                "line {}",
+                "line {} (context)",
                 c.anchor.new_line.or(c.anchor.old_line).unwrap_or(0)
             ),
         };
@@ -92,7 +96,7 @@ mod tests {
             "why?".into(),
         );
         let (p, ids) = build_prompt(&s, CopyScope::Uncopied).unwrap();
-        assert!(p.contains("old line 2"));
+        assert!(p.contains("old line 2 (removed)"));
         mark_copied(&mut s, &ids, "uncopied", &p);
         assert_eq!(s.batches.len(), 1);
         assert!(build_prompt(&s, CopyScope::Uncopied).is_none());

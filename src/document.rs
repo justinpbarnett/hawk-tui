@@ -23,6 +23,9 @@ pub enum ReviewRow {
         hunk: String,
         line: DiffLine,
     },
+    CommentGhost {
+        body: String,
+    },
     Placeholder(String),
 }
 
@@ -204,6 +207,13 @@ pub fn flatten(repos: &[RepoDiff], session: &Session) -> Vec<ReviewRow> {
                             hunk: h.header.clone(),
                             line: l.clone(),
                         });
+                        if let Some(comment) = session.comments.get(&anchor.key()) {
+                            if session.show_resolved || comment.status != CommentStatus::Resolved {
+                                rows.push(ReviewRow::CommentGhost {
+                                    body: comment.body.clone(),
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -273,5 +283,7 @@ mod tests {
         s.upsert_comment(a, "note".into());
         let d = ReviewDocument::from_repos(&[repo()], &s);
         assert_eq!(d.next_visible_comment_after(0, &s), Some(3));
+        assert!(matches!(d.row(4), Some(ReviewRow::CommentGhost { body }) if body == "note"));
+        assert_eq!(d.next_changed_line_after(3), Some(6));
     }
 }
