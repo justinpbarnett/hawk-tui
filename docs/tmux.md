@@ -26,7 +26,7 @@ bind-key H split-window -h -c '#{pane_current_path}' 'hawk'
 Split-pane binding for this local checkout:
 
 ```tmux
-bind-key g split-window -h -l 40% -c '#{pane_current_path}' 'cargo run --manifest-path /Users/justin.barnett/dev/hawk-tui/Cargo.toml --'
+bind-key g split-window -h -p 70 -c '#{pane_current_path}' 'cargo run --manifest-path /Users/justin.barnett/dev/hawk-tui/Cargo.toml --'
 ```
 
 Popup binding:
