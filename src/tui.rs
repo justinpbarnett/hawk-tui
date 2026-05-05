@@ -14,7 +14,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
     Terminal,
 };
 use std::io;
@@ -63,10 +63,14 @@ fn draw(f: &mut ratatui::Frame, engine: &ReviewEngine, app: &AppState) {
             })
         })
         .collect();
-    f.render_widget(
-        List::new(items).block(Block::default().title("hawk").borders(Borders::ALL)),
-        chunks[0],
-    );
+    if matches!(app.mode, Mode::Help) {
+        f.render_widget(help_panel(), chunks[0]);
+    } else {
+        f.render_widget(
+            List::new(items).block(Block::default().title("hawk").borders(Borders::ALL)),
+            chunks[0],
+        );
+    }
     let dirty = if engine.dirty {
         " | DIRTY: press r to reload"
     } else {
@@ -81,6 +85,33 @@ fn draw(f: &mut ratatui::Frame, engine: &ReviewEngine, app: &AppState) {
         chunks[1],
     );
 }
+fn help_panel() -> Paragraph<'static> {
+    Paragraph::new(
+        "Hawk help\n\n\
+Navigation:\n\
+  j/k        move line down/up\n\
+  J/K, Tab   jump between hunks\n\
+  e          toggle file sidebar\n\
+  c          open comment list\n\
+\nComments:\n\
+  o          add/edit comment on current diff line\n\
+  x          delete current line comment\n\
+  X          delete visible comments with confirmation\n\
+  n / p,N    next / previous unresolved comment\n\
+  m          toggle resolved\n\
+  s          show/hide resolved\n\
+\nExport and commands:\n\
+  y / :w     copy uncopied comments\n\
+  Y / :w!    copy all visible comments\n\
+  r / :reload reload diff\n\
+  q / :q     quit\n\
+  :q!        force quit\n\
+  ? or Esc   close help",
+    )
+    .block(Block::default().title("Hawk help").borders(Borders::ALL))
+    .wrap(Wrap { trim: false })
+}
+
 fn row_line(r: &ReviewRow) -> Line<'static> {
     match r {
         ReviewRow::Repo(s) => Line::from(vec![Span::styled(
@@ -119,6 +150,7 @@ mod tests {
         session::Session,
     };
     use crossterm::event::{KeyCode, KeyEvent};
+    use ratatui::backend::TestBackend;
     fn eng() -> ReviewEngine {
         let repo = RepoDiff {
             repo_path: ".".into(),
@@ -167,5 +199,21 @@ mod tests {
         ));
         CommandHandler::handle(&mut a, KeyEvent::from(KeyCode::Char('?')), &mut e);
         assert_eq!(a.mode, Mode::Help);
+    }
+
+    #[test]
+    fn help_mode_renders_keybindings() {
+        let e = eng();
+        let mut a = AppState::default();
+        a.mode = Mode::Help;
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal.draw(|f| draw(f, &e, &a)).unwrap();
+
+        let rendered = format!("{:?}", terminal.backend().buffer());
+        assert!(rendered.contains("Hawk help"));
+        assert!(rendered.contains("j/k"));
+        assert!(rendered.contains("copy uncopied comments"));
     }
 }
