@@ -57,15 +57,12 @@ fn draw(f: &mut ratatui::Frame, engine: &ReviewEngine, app: &AppState) {
         .iter()
         .enumerate()
         .map(|(i, r)| {
-            let row = if let Mode::Editing(buffer) = &app.mode {
+            let mut row = row_lines(r);
+            if let Mode::Editing(buffer) = &app.mode {
                 if i == app.cursor {
-                    vec![row_line(r), editing_ghost_line(buffer)]
-                } else {
-                    vec![row_line(r)]
+                    row.extend(editing_ghost_lines(buffer));
                 }
-            } else {
-                vec![row_line(r)]
-            };
+            }
             ListItem::new(row).style(if i == app.cursor {
                 Style::default().add_modifier(Modifier::REVERSED)
             } else {
@@ -73,17 +70,22 @@ fn draw(f: &mut ratatui::Frame, engine: &ReviewEngine, app: &AppState) {
             })
         })
         .collect();
+    let main_list = List::new(items).block(Block::default().title("hawk").borders(Borders::ALL));
     if matches!(app.mode, Mode::Help) {
         f.render_widget(help_panel(), chunks[0]);
-    } else if app.sidebar {
-        f.render_widget(sidebar_panel(engine), chunks[0]);
-    } else if matches!(app.mode, Mode::CommentList { .. }) {
-        f.render_widget(comment_list_panel(engine), chunks[0]);
+    } else if app.sidebar || matches!(app.mode, Mode::CommentList { .. }) {
+        let panes = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+            .split(chunks[0]);
+        f.render_widget(main_list, panes[0]);
+        if app.sidebar {
+            f.render_widget(sidebar_panel(engine), panes[1]);
+        } else {
+            f.render_widget(comment_list_panel(engine), panes[1]);
+        }
     } else {
-        f.render_widget(
-            List::new(items).block(Block::default().title("hawk").borders(Borders::ALL)),
-            chunks[0],
-        );
+        f.render_widget(main_list, chunks[0]);
     }
     let status_index = 1;
     let dirty = if engine.dirty {
@@ -100,23 +102,16 @@ fn draw(f: &mut ratatui::Frame, engine: &ReviewEngine, app: &AppState) {
         chunks[status_index],
     );
 }
-fn editing_ghost_line(buffer: &str) -> Line<'static> {
-    let visible = if buffer.is_empty() {
-        "  💬 Type comment here. Esc saves."
-    } else {
-        return Line::from(vec![Span::styled(
-            format!("  💬 {buffer}"),
+fn editing_ghost_lines(buffer: &str) -> Vec<Line<'static>> {
+    if buffer.is_empty() {
+        return vec![Line::from(vec![Span::styled(
+            "  💬 Type comment here. Esc saves.",
             Style::default()
-                .fg(Color::Yellow)
+                .fg(Color::DarkGray)
                 .add_modifier(Modifier::ITALIC),
-        )]);
-    };
-    Line::from(vec![Span::styled(
-        visible,
-        Style::default()
-            .fg(Color::DarkGray)
-            .add_modifier(Modifier::ITALIC),
-    )])
+        )])];
+    }
+    comment_ghost_lines(buffer, Color::Yellow)
 }
 
 fn sidebar_panel(engine: &ReviewEngine) -> Paragraph<'static> {
@@ -190,38 +185,46 @@ Navigation:\n\
     .wrap(Wrap { trim: false })
 }
 
-fn row_line(r: &ReviewRow) -> Line<'static> {
+fn row_lines(r: &ReviewRow) -> Vec<Line<'static>> {
     match r {
-        ReviewRow::Repo(s) => Line::from(vec![Span::styled(
+        ReviewRow::Repo(s) => vec![Line::from(vec![Span::styled(
             format!("repo {s}"),
             Style::default().fg(Color::Cyan),
-        )]),
+        )])],
         ReviewRow::File {
             path,
             added,
             removed,
             ..
-        } => Line::from(format!("file {path} +{added} -{removed}")),
-        ReviewRow::Hunk { header, .. } => Line::from(header.clone()),
+        } => vec![Line::from(format!("file {path} +{added} -{removed}"))],
+        ReviewRow::Hunk { header, .. } => vec![Line::from(header.clone())],
         ReviewRow::Line { line, .. } => {
             let (p, c) = match line.kind {
                 crate::diff::LineKind::Add => ("+", Color::Green),
                 crate::diff::LineKind::Remove => ("-", Color::Red),
                 crate::diff::LineKind::Context => (" ", Color::Gray),
             };
-            Line::from(vec![Span::styled(
+            vec![Line::from(vec![Span::styled(
                 format!("{}{}", p, line.text),
                 Style::default().fg(c),
-            )])
+            )])]
         }
-        ReviewRow::CommentGhost { body } => Line::from(vec![Span::styled(
-            format!("  💬 {}", body.replace('\n', " ⏎ ")),
-            Style::default()
-                .fg(Color::DarkGray)
-                .add_modifier(Modifier::ITALIC),
-        )]),
-        ReviewRow::Placeholder(s) => Line::from(format!("! {s}")),
+        ReviewRow::CommentGhost { body } => comment_ghost_lines(body, Color::DarkGray),
+        ReviewRow::Placeholder(s) => vec![Line::from(format!("! {s}"))],
     }
+}
+
+fn comment_ghost_lines(body: &str, color: Color) -> Vec<Line<'static>> {
+    body.lines()
+        .enumerate()
+        .map(|(i, line)| {
+            let prefix = if i == 0 { "  💬 " } else { "    " };
+            Line::from(vec![Span::styled(
+                format!("{prefix}{line}"),
+                Style::default().fg(color).add_modifier(Modifier::ITALIC),
+            )])
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -299,6 +302,40 @@ mod tests {
         assert!(rendered.contains("Hawk help"));
         assert!(rendered.contains("j/k"));
         assert!(rendered.contains("copy uncopied comments"));
+    }
+
+    #[test]
+    fn sidebars_render_beside_the_diff_instead_of_replacing_it() {
+        let e = eng();
+        let mut a = AppState::default();
+        a.sidebar = true;
+        let backend = TestBackend::new(100, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal.draw(|f| draw(f, &e, &a)).unwrap();
+
+        let rendered = format!("{:?}", terminal.backend().buffer());
+        assert!(rendered.contains("hawk"));
+        assert!(rendered.contains("File sidebar"));
+
+        a.sidebar = false;
+        a.mode = Mode::CommentList { selected: 0 };
+        terminal.draw(|f| draw(f, &e, &a)).unwrap();
+
+        let rendered = format!("{:?}", terminal.backend().buffer());
+        assert!(rendered.contains("hawk"));
+        assert!(rendered.contains("Comment list"));
+    }
+
+    #[test]
+    fn multiline_ghost_comments_render_as_multiple_tui_lines() {
+        let lines = row_lines(&ReviewRow::CommentGhost {
+            body: "first\nsecond".into(),
+        });
+
+        assert_eq!(lines.len(), 2);
+        assert!(format!("{:?}", lines[0]).contains("first"));
+        assert!(format!("{:?}", lines[1]).contains("second"));
     }
 
     #[test]

@@ -67,7 +67,12 @@ impl CommandHandler {
                 }
                 KeyCode::Char('?') => app.mode = Mode::Help,
                 KeyCode::Char(':') => app.mode = Mode::Command(String::new()),
-                KeyCode::Char('e') => app.sidebar = !app.sidebar,
+                KeyCode::Char('e') => {
+                    app.sidebar = !app.sidebar;
+                    if app.sidebar {
+                        app.mode = Mode::Nav;
+                    }
+                }
                 KeyCode::Char('o') => {
                     if let Some(anchor) = engine.document.anchor_at(app.cursor) {
                         let existing = engine
@@ -111,7 +116,10 @@ impl CommandHandler {
                         app.cursor = i
                     }
                 }
-                KeyCode::Char('c') => app.mode = Mode::CommentList { selected: 0 },
+                KeyCode::Char('c') => {
+                    app.sidebar = false;
+                    app.mode = Mode::CommentList { selected: 0 };
+                }
                 _ => {}
             },
             Mode::Help => {
@@ -156,7 +164,7 @@ impl CommandHandler {
                 _ => {}
             },
             Mode::CommentList { selected } => match key.code {
-                KeyCode::Esc => app.mode = Mode::Nav,
+                KeyCode::Esc | KeyCode::Char('c') => app.mode = Mode::Nav,
                 KeyCode::Char('j') => {
                     *selected = (*selected + 1)
                         .min(engine.session.visible_comments().len().saturating_sub(1))
@@ -259,6 +267,17 @@ mod tests {
         ));
         CommandHandler::handle(&mut a, KeyEvent::from(KeyCode::Char('?')), &mut e);
         assert_eq!(a.mode, Mode::Help);
+    }
+
+    #[test]
+    fn c_toggles_comment_list_away() {
+        let mut e = eng();
+        let mut a = AppState::default();
+
+        CommandHandler::handle(&mut a, KeyEvent::from(KeyCode::Char('c')), &mut e);
+        assert_eq!(a.mode, Mode::CommentList { selected: 0 });
+        CommandHandler::handle(&mut a, KeyEvent::from(KeyCode::Char('c')), &mut e);
+        assert_eq!(a.mode, Mode::Nav);
     }
 
     #[test]
