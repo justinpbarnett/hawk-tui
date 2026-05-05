@@ -46,9 +46,15 @@ impl CommandHandler {
                     app.quit = true
                 }
                 KeyCode::Char('j') => {
-                    app.cursor = (app.cursor + 1).min(engine.document.len().saturating_sub(1))
+                    if let Some(i) = engine.document.next_changed_line_after(app.cursor) {
+                        app.cursor = i;
+                    }
                 }
-                KeyCode::Char('k') => app.cursor = app.cursor.saturating_sub(1),
+                KeyCode::Char('k') => {
+                    if let Some(i) = engine.document.prev_changed_line_before(app.cursor) {
+                        app.cursor = i;
+                    }
+                }
                 KeyCode::Char('J') | KeyCode::Tab => {
                     if let Some(i) = engine.document.next_hunk_after(app.cursor) {
                         app.cursor = i
@@ -208,12 +214,20 @@ mod tests {
                 status: FileStatus::Modified,
                 hunks: vec![Hunk {
                     header: "@@ -1 +1".into(),
-                    lines: vec![DiffLine {
-                        kind: LineKind::Context,
-                        old_lineno: Some(1),
-                        new_lineno: Some(1),
-                        text: "x".into(),
-                    }],
+                    lines: vec![
+                        DiffLine {
+                            kind: LineKind::Context,
+                            old_lineno: Some(1),
+                            new_lineno: Some(1),
+                            text: "x".into(),
+                        },
+                        DiffLine {
+                            kind: LineKind::Add,
+                            old_lineno: None,
+                            new_lineno: Some(2),
+                            text: "new".into(),
+                        },
+                    ],
                 }],
             }],
         };
@@ -245,5 +259,35 @@ mod tests {
         ));
         CommandHandler::handle(&mut a, KeyEvent::from(KeyCode::Char('?')), &mut e);
         assert_eq!(a.mode, Mode::Help);
+    }
+
+    #[test]
+    fn j_and_k_jump_between_changed_lines_not_metadata_or_context() {
+        let mut e = eng();
+        let mut a = AppState::default();
+
+        CommandHandler::handle(&mut a, KeyEvent::from(KeyCode::Char('j')), &mut e);
+
+        assert!(matches!(
+            e.document.row(a.cursor),
+            Some(crate::document::ReviewRow::Line {
+                line: DiffLine {
+                    kind: LineKind::Add,
+                    ..
+                },
+                ..
+            })
+        ));
+        CommandHandler::handle(&mut a, KeyEvent::from(KeyCode::Char('k')), &mut e);
+        assert!(matches!(
+            e.document.row(a.cursor),
+            Some(crate::document::ReviewRow::Line {
+                line: DiffLine {
+                    kind: LineKind::Add,
+                    ..
+                },
+                ..
+            })
+        ));
     }
 }

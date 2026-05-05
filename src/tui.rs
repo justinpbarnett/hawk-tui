@@ -46,9 +46,18 @@ pub fn run(mut engine: ReviewEngine) -> Result<()> {
 }
 
 fn draw(f: &mut ratatui::Frame, engine: &ReviewEngine, app: &AppState) {
+    let constraints = if matches!(app.mode, Mode::Editing(_)) {
+        vec![
+            Constraint::Min(1),
+            Constraint::Length(6),
+            Constraint::Length(1),
+        ]
+    } else {
+        vec![Constraint::Min(1), Constraint::Length(1)]
+    };
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(1), Constraint::Length(1)])
+        .constraints(constraints)
         .split(f.size());
     let items: Vec<_> = engine
         .document
@@ -71,6 +80,12 @@ fn draw(f: &mut ratatui::Frame, engine: &ReviewEngine, app: &AppState) {
             chunks[0],
         );
     }
+    let status_index = if let Mode::Editing(buffer) = &app.mode {
+        f.render_widget(comment_editor(buffer), chunks[1]);
+        2
+    } else {
+        1
+    };
     let dirty = if engine.dirty {
         " | DIRTY: press r to reload"
     } else {
@@ -82,9 +97,25 @@ fn draw(f: &mut ratatui::Frame, engine: &ReviewEngine, app: &AppState) {
             engine.document.len(),
             app.status
         )),
-        chunks[1],
+        chunks[status_index],
     );
 }
+fn comment_editor(buffer: &str) -> Paragraph<'_> {
+    let visible = if buffer.is_empty() {
+        "Type comment here. Esc saves, Ctrl-C saves, Backspace edits."
+    } else {
+        buffer
+    };
+    Paragraph::new(visible)
+        .block(
+            Block::default()
+                .title("Comment editor")
+                .borders(Borders::ALL),
+        )
+        .style(Style::default().fg(Color::Yellow))
+        .wrap(Wrap { trim: false })
+}
+
 fn help_panel() -> Paragraph<'static> {
     Paragraph::new(
         "Hawk help\n\n\
@@ -215,5 +246,20 @@ mod tests {
         assert!(rendered.contains("Hawk help"));
         assert!(rendered.contains("j/k"));
         assert!(rendered.contains("copy uncopied comments"));
+    }
+
+    #[test]
+    fn edit_mode_renders_comment_buffer() {
+        let e = eng();
+        let mut a = AppState::default();
+        a.mode = Mode::Editing("please fix this".into());
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal.draw(|f| draw(f, &e, &a)).unwrap();
+
+        let rendered = format!("{:?}", terminal.backend().buffer());
+        assert!(rendered.contains("Comment editor"));
+        assert!(rendered.contains("please fix this"));
     }
 }

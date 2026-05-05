@@ -52,6 +52,23 @@ impl ReviewDocument {
     pub fn anchor_at(&self, idx: usize) -> Option<LineAnchor> {
         self.row(idx).and_then(anchor_from_row)
     }
+    pub fn next_changed_line_after(&self, cursor: usize) -> Option<usize> {
+        let changes = self.changed_lines();
+        changes
+            .iter()
+            .copied()
+            .find(|i| *i > cursor)
+            .or_else(|| changes.first().copied())
+    }
+    pub fn prev_changed_line_before(&self, cursor: usize) -> Option<usize> {
+        let changes = self.changed_lines();
+        changes
+            .iter()
+            .rev()
+            .copied()
+            .find(|i| *i < cursor)
+            .or_else(|| changes.last().copied())
+    }
     pub fn next_hunk_after(&self, cursor: usize) -> Option<usize> {
         let hs = self.hunks();
         hs.iter()
@@ -87,6 +104,25 @@ impl ReviewDocument {
         self.rows
             .iter()
             .position(|r| anchor_from_row(r).map(|a| a.key()) == Some(key.clone()))
+    }
+    fn changed_lines(&self) -> Vec<usize> {
+        self.rows
+            .iter()
+            .enumerate()
+            .filter(|(_, r)| {
+                matches!(
+                    r,
+                    ReviewRow::Line {
+                        line: DiffLine {
+                            kind: LineKind::Add | LineKind::Remove,
+                            ..
+                        },
+                        ..
+                    }
+                )
+            })
+            .map(|(i, _)| i)
+            .collect()
     }
     fn hunks(&self) -> Vec<usize> {
         self.rows
@@ -226,11 +262,13 @@ mod tests {
         }
     }
     #[test]
-    fn document_navigates_hunks_and_comments() {
+    fn document_navigates_hunks_comments_and_changed_lines() {
         let mut s = Session::default();
         let d = ReviewDocument::from_repos(&[repo()], &s);
         assert_eq!(d.next_hunk_after(0), Some(2));
         assert_eq!(d.prev_hunk_before(0), Some(4));
+        assert_eq!(d.next_changed_line_after(0), Some(3));
+        assert_eq!(d.prev_changed_line_before(0), Some(5));
         let a = d.anchor_at(3).unwrap();
         s.upsert_comment(a, "note".into());
         let d = ReviewDocument::from_repos(&[repo()], &s);
