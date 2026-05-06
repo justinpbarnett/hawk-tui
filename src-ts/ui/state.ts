@@ -104,5 +104,9 @@ function prevHunk(engine: ReviewEngine, cursor: number): number | undefined {
 
 export function keyName(key: { name?: string; sequence?: string; ctrl?: boolean }): string {
   if (key.ctrl && key.name === "c") return "ctrl-c"
+  if (key.name === "space") return " "
+  if (key.name === "return") return "enter"
+  if (key.name === "newline") return "enter"
+  if (key.sequence === "\r" || key.sequence === "\n") return "enter"
   return key.name ?? key.sequence ?? ""
 }

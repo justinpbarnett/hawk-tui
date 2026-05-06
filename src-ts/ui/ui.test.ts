@@ -4,7 +4,7 @@ import { ReviewEngine } from "../core/engine.js"
 import type { RepoDiff } from "../core/model.js"
 import { defaultSession, upsertComment, anchorForLine } from "../core/session.js"
 import { ReviewDocument } from "../core/document.js"
-import { defaultAppState, handleKey } from "./state.js"
+import { defaultAppState, handleKey, keyName } from "./state.js"
 import { buildReviewScreen, buildView } from "./view.js"
 
 test("comment editing is inline and multiline in the view", async () => {
@@ -19,6 +19,22 @@ test("comment editing is inline and multiline in the view", async () => {
   const view = buildView(engine, state)
 
   assert.deepEqual(view.main.filter((line) => line.kind === "comment").map((line) => line.text), ["  💬 a", "     b"])
+})
+
+test("OpenTUI key names normalize whitespace for comment editing", async () => {
+  assert.equal(keyName({ name: "space", sequence: " " }), " ")
+  assert.equal(keyName({ name: "return", sequence: "\r" }), "enter")
+  assert.equal(keyName({ sequence: "\n" }), "enter")
+})
+
+test("comment editor accepts spaces and enter", async () => {
+  const engine = fixtureEngine()
+  let state = defaultAppState()
+  state.cursor = 3
+  state = await handleKey(state, "o", engine)
+  for (const key of ["a", " ", "b", "enter", "c"]) state = await handleKey(state, key, engine)
+
+  assert.equal(state.editBuffer, "a b\nc")
 })
 
 test("c toggles the comment sidebar and e opens a side-by-side file sidebar", async () => {
