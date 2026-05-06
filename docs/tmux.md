@@ -23,10 +23,10 @@ Split-pane binding for an installed `hawk`:
 bind-key H split-window -h -c '#{pane_current_path}' 'hawk'
 ```
 
-Split-pane binding for this local checkout, with Hawk taking 70% of the screen:
+Split-pane binding for this local checkout, with Hawk taking 60% of the screen:
 
 ```tmux
-bind-key g split-window -h -p 70 -c '#{pane_current_path}' '/Users/justin.barnett/dev/hawk-tui/bin/hawk'
+bind-key g split-window -h -p 60 -c '#{pane_current_path}' '/Users/justin.barnett/dev/hawk-tui/bin/hawk'
 ```
 
 Popup binding:
