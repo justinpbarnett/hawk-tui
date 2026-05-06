@@ -103,7 +103,7 @@ function helpLines(): ViewLine[] {
     "",
     "j/k changed line navigation",
     "J/K or Tab hunk navigation",
-    "Enter expand/collapse current file",
+    "h/l collapse/expand current file, Enter toggles",
     "o edit inline comment, Esc saves",
     "e toggle file sidebar, c toggle comments sidebar",
     "y copy uncopied comments, Y copy all visible comments",

@@ -35,6 +35,8 @@ export async function handleKey(state: AppState, key: string, engine: ReviewEngi
     case "K": next.cursor = prevHunk(engine, next.cursor) ?? next.cursor; break
     case "o": startEditing(next, engine); break
     case "enter": toggleCurrentFile(next, engine); break
+    case "h": collapseCurrentFile(next, engine); break
+    case "l": expandCurrentFile(next, engine); break
     case "e": next.sidebar = !next.sidebar; next.mode = "nav"; break
     case "c": next.sidebar = false; next.mode = "comments"; break
     case "?": next.mode = "help"; break
@@ -85,6 +87,16 @@ function toggleCurrentFile(state: AppState, engine: ReviewEngine) {
   state.collapsedFiles = state.collapsedFiles.includes(file)
     ? state.collapsedFiles.filter((path) => path !== file)
     : [...state.collapsedFiles, file]
+}
+
+function collapseCurrentFile(state: AppState, engine: ReviewEngine) {
+  const file = currentFile(engine, state.cursor)
+  if (file && !state.collapsedFiles.includes(file)) state.collapsedFiles = [...state.collapsedFiles, file]
+}
+
+function expandCurrentFile(state: AppState, engine: ReviewEngine) {
+  const file = currentFile(engine, state.cursor)
+  if (file) state.collapsedFiles = state.collapsedFiles.filter((path) => path !== file)
 }
 
 function currentFile(engine: ReviewEngine, cursor: number): string | undefined {

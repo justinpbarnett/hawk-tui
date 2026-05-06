@@ -63,7 +63,7 @@ function cardBox(card: FileCard) {
   return Box(
     { flexDirection: "column", border: true, borderStyle: "rounded", borderColor: theme.border },
     fileHeader(card),
-    ...(card.collapsed ? [Text({ content: "    ⋯ collapsed — press Enter to expand", fg: theme.muted })] : card.rows.slice(0, 18).map(codeLineBox)),
+    ...(card.collapsed ? [Text({ content: "    ⋯ collapsed — press l to expand", fg: theme.muted })] : card.rows.slice(0, 18).map(codeLineBox)),
     Text({ content: card.collapsed ? "" : "    ⌄", fg: theme.muted }),
   )
 }
