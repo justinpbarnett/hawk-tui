@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "hawk-ts": "./src-ts/cli.ts"
+    "hawk": "./bin/hawk"
   },
   "scripts": {
     "test": "node --import tsx --test 'src-ts/**/*.test.ts'",
     "typecheck": "tsc --noEmit",
-    "hawk": "tsx src-ts/cli.ts",
-    "hawk:opentui": "bun src-ts/opentui.ts"
+    "hawk": "bun src-ts/opentui.ts",
+    "hawk:opentui": "bun src-ts/opentui.ts",
+    "hawk:no-tui": "bun src-ts/cli.ts --no-tui"
   },
   "dependencies": {
     "@opentui/core": "^0.2.3"

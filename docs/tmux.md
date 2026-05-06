@@ -1,20 +1,20 @@
 # Hawk TUI tmux usage
 
-Install during development:
+Install dependencies during development:
 
 ```sh
-cargo install --path .
+npm install
 ```
 
 Run directly:
 
 ```sh
-hawk
-hawk --staged
-hawk --base main
-hawk --ref 'main..HEAD'
-hawk --repo
-hawk --workspace
+./bin/hawk
+./bin/hawk --staged
+./bin/hawk --base main
+./bin/hawk --ref 'main..HEAD'
+./bin/hawk --repo
+./bin/hawk --workspace
 ```
 
 Split-pane binding for an installed `hawk`:
@@ -23,10 +23,10 @@ Split-pane binding for an installed `hawk`:
 bind-key H split-window -h -c '#{pane_current_path}' 'hawk'
 ```
 
-Split-pane binding for this local checkout:
+Split-pane binding for this local checkout, with Hawk taking 70% of the screen:
 
 ```tmux
-bind-key g split-window -h -p 70 -c '#{pane_current_path}' 'cargo run --manifest-path /Users/justin.barnett/dev/hawk-tui/Cargo.toml --'
+bind-key g split-window -h -p 70 -c '#{pane_current_path}' '/Users/justin.barnett/dev/hawk-tui/bin/hawk'
 ```
 
 Popup binding:
@@ -35,4 +35,4 @@ Popup binding:
 bind-key h display-popup -E -w 90% -h 90% -d '#{pane_current_path}' 'hawk'
 ```
 
-Hawk stays local and provider-agnostic. Copy comments with `y`/`Y` or `:w`/`:w!`, then paste the generated prompt into pi, Claude Code, Codex CLI, Droid, or any other agent.
+Hawk stays local and provider-agnostic. Copy comments with `y`/`Y`, then paste the generated prompt into pi, Claude Code, Codex CLI, Droid, or any other agent.
