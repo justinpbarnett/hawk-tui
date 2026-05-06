@@ -10,12 +10,13 @@ export interface AppState {
   editBuffer: string
   status: string
   quit: boolean
+  collapsedFiles: string[]
 }
 export interface KeyHandlingOptions {
   write?: (text: string) => Promise<string>
 }
 
-export const defaultAppState = (): AppState => ({ cursor: 0, mode: "nav", sidebar: false, editBuffer: "", status: "", quit: false })
+export const defaultAppState = (): AppState => ({ cursor: 0, mode: "nav", sidebar: false, editBuffer: "", status: "", quit: false, collapsedFiles: [] })
 
 export async function handleKey(state: AppState, key: string, engine: ReviewEngine, options: KeyHandlingOptions = {}): Promise<AppState> {
   const next = { ...state }
@@ -33,6 +34,7 @@ export async function handleKey(state: AppState, key: string, engine: ReviewEngi
     case "tab": next.cursor = engine.document.nextHunkAfter(next.cursor) ?? next.cursor; break
     case "K": next.cursor = prevHunk(engine, next.cursor) ?? next.cursor; break
     case "o": startEditing(next, engine); break
+    case "enter": toggleCurrentFile(next, engine); break
     case "e": next.sidebar = !next.sidebar; next.mode = "nav"; break
     case "c": next.sidebar = false; next.mode = "comments"; break
     case "?": next.mode = "help"; break
@@ -75,6 +77,23 @@ function startEditing(state: AppState, engine: ReviewEngine) {
   }
   state.editBuffer = engine.session.comments[anchorKey(anchor)]?.body ?? ""
   state.mode = "editing"
+}
+
+function toggleCurrentFile(state: AppState, engine: ReviewEngine) {
+  const file = currentFile(engine, state.cursor)
+  if (!file) return
+  state.collapsedFiles = state.collapsedFiles.includes(file)
+    ? state.collapsedFiles.filter((path) => path !== file)
+    : [...state.collapsedFiles, file]
+}
+
+function currentFile(engine: ReviewEngine, cursor: number): string | undefined {
+  for (let i = cursor; i >= 0; i--) {
+    const row = engine.document.rows[i]
+    if (row?.kind === "file") return row.path
+    if (row?.kind === "line" || row?.kind === "hunk") return row.file
+  }
+  return undefined
 }
 
 function prevHunk(engine: ReviewEngine, cursor: number): number | undefined {

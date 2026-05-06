@@ -47,7 +47,24 @@ test("review screen groups rows into GitHub-like file cards", () => {
   assert.equal(screen.added, 1)
   assert.equal(screen.removed, 1)
   assert.equal(screen.cards[0]?.path, "a.ts")
+  assert.equal(screen.cards[0]?.collapsed, false)
   assert.deepEqual(screen.cards[0]?.rows.map((row) => row.kind), ["add", "remove"])
+})
+
+test("enter toggles collapse for the current file card", async () => {
+  const engine = fixtureEngine()
+  let state = defaultAppState()
+  state.cursor = 3
+
+  state = await handleKey(state, "enter", engine)
+  let screen = buildReviewScreen(engine, state)
+  assert.equal(screen.cards[0]?.collapsed, true)
+  assert.deepEqual(screen.cards[0]?.rows, [])
+
+  state = await handleKey(state, "enter", engine)
+  screen = buildReviewScreen(engine, state)
+  assert.equal(screen.cards[0]?.collapsed, false)
+  assert.equal(screen.cards[0]?.rows.length, 2)
 })
 
 test("y exports uncopied comments through the supplied writer", async () => {

@@ -12,7 +12,7 @@ const theme = {
   red: "#ff6b61",
   addedBg: "#203816",
   removedBg: "#4a211f",
-  selectedBg: "#2d421f",
+  selectedBg: "#4b6f2a",
   comment: "#22b8db",
   file: "#89b4fa",
   hunk: "#f9e2af",
@@ -63,15 +63,15 @@ function cardBox(card: FileCard) {
   return Box(
     { flexDirection: "column", border: true, borderStyle: "rounded", borderColor: theme.border },
     fileHeader(card),
-    ...card.rows.slice(0, 18).map(codeLineBox),
-    Text({ content: "    ⌄", fg: theme.muted }),
+    ...(card.collapsed ? [Text({ content: "    ⋯ collapsed — press Enter to expand", fg: theme.muted })] : card.rows.slice(0, 18).map(codeLineBox)),
+    Text({ content: card.collapsed ? "" : "    ⌄", fg: theme.muted }),
   )
 }
 
 function fileHeader(card: FileCard) {
   return Box(
     { height: 2, flexDirection: "row" },
-    Text({ content: `  ⌄  ${card.path}  `, fg: theme.file }),
+    Text({ content: `  ${card.collapsed ? "›" : "⌄"}  ${card.path}  `, fg: theme.file }),
     Text({ content: ` +${card.added} `, fg: theme.green }),
     Text({ content: "•", fg: theme.muted }),
     Text({ content: ` -${card.removed} `, fg: theme.red }),
@@ -79,12 +79,14 @@ function fileHeader(card: FileCard) {
 }
 
 function codeLineBox(line: CodeLine) {
-  const bg = line.kind === "add" ? theme.addedBg : line.kind === "remove" ? theme.removedBg : line.sourceRow === state.cursor ? theme.selectedBg : undefined
+  const selected = line.sourceRow === state.cursor
+  const bg = selected ? theme.selectedBg : line.kind === "add" ? theme.addedBg : line.kind === "remove" ? theme.removedBg : undefined
   return Box(
     { height: 1, flexDirection: "row", backgroundColor: bg },
-    Text({ content: `${line.number ?? ""}`.padStart(4), fg: theme.muted, bg }),
+    Text({ content: selected ? "▌" : " ", fg: theme.green, bg }),
+    Text({ content: `${line.number ?? ""}`.padStart(4), fg: selected ? theme.text : theme.muted, bg }),
     Text({ content: "  ", bg }),
-    Text({ content: line.text, fg: fgLine(line), bg, truncate: true }),
+    Text({ content: line.text, fg: selected ? theme.text : fgLine(line), bg, truncate: true }),
   )
 }
 
