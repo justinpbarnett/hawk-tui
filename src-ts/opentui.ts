@@ -75,7 +75,7 @@ function cardBox(card: FileCard) {
   return Box(
     { flexDirection: "column", border: true, borderStyle: "rounded", borderColor: theme.border },
     fileHeader(card),
-    ...(card.collapsed ? [Text({ content: "    ⋯ collapsed — press l to expand", fg: theme.muted, bg: state.cursor === card.sourceRow ? theme.selectedBg : undefined })] : card.rows.slice(0, 18).map(codeLineBox)),
+    ...(card.collapsed ? [Text({ content: "    ⋯ collapsed — press l to expand", fg: theme.muted, bg: state.cursor === card.sourceRow ? theme.selectedBg : undefined })] : card.rows.slice(0, 18).flatMap(codeLineBoxes)),
     Text({ content: card.collapsed ? "" : "    ⌄", fg: theme.muted }),
   )
 }
@@ -91,16 +91,36 @@ function fileHeader(card: FileCard) {
   )
 }
 
-function codeLineBox(line: CodeLine) {
+function codeLineBoxes(line: CodeLine) {
   const selected = line.sourceRow === state.cursor
   const bg = selected ? theme.selectedBg : line.kind === "add" ? theme.addedBg : line.kind === "remove" ? theme.removedBg : undefined
-  return Box(
+  const chunks = wrapText(line.text, codeWidth())
+  return chunks.map((chunk, index) => Box(
     { height: 1, flexDirection: "row", backgroundColor: bg },
-    Text({ content: selected ? "▌" : " ", fg: theme.green, bg }),
-    Text({ content: `${line.number ?? ""}`.padStart(4), fg: selected ? theme.text : theme.muted, bg }),
+    Text({ content: selected && index === 0 ? "▌" : " ", fg: theme.green, bg }),
+    Text({ content: index === 0 ? `${line.number ?? ""}`.padStart(4) : "    ", fg: selected ? theme.text : theme.muted, bg }),
     Text({ content: "  ", bg }),
-    Text({ content: line.text, fg: selected ? theme.text : fgLine(line), bg, wrapMode: "word" }),
-  )
+    Text({ content: chunk, fg: selected ? theme.text : fgLine(line), bg }),
+  ))
+}
+
+function wrapText(text: string, width: number): string[] {
+  if (text.length <= width) return [text]
+  const chunks: string[] = []
+  let rest = text
+  while (rest.length > width) {
+    let cut = rest.lastIndexOf(" ", width)
+    if (cut < Math.floor(width / 2)) cut = width
+    chunks.push(rest.slice(0, cut))
+    rest = rest.slice(cut).trimStart()
+  }
+  chunks.push(rest)
+  return chunks
+}
+
+function codeWidth() {
+  const sidebarPenalty = state.sidebar || state.mode === "comments" ? Math.floor(renderer.width * 0.3) : 0
+  return Math.max(20, renderer.width - sidebarPenalty - 14)
 }
 
 function sidebarBox(title: string, lines: ViewLine[]) {

@@ -25,6 +25,8 @@ test("OpenTUI key names normalize whitespace for comment editing", async () => {
   assert.equal(keyName({ name: "space", sequence: " " }), " ")
   assert.equal(keyName({ name: "return", sequence: "\r" }), "enter")
   assert.equal(keyName({ sequence: "\n" }), "enter")
+  assert.equal(keyName({ name: "j", shift: true }), "J")
+  assert.equal(keyName({ name: "k", shift: true }), "K")
 })
 
 test("comment editor accepts spaces and enter", async () => {

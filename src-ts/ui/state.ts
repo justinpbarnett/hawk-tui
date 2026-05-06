@@ -108,11 +108,13 @@ function currentFile(engine: ReviewEngine, cursor: number): string | undefined {
   return undefined
 }
 
-export function keyName(key: { name?: string; sequence?: string; ctrl?: boolean }): string {
+export function keyName(key: { name?: string; sequence?: string; ctrl?: boolean; shift?: boolean }): string {
   if (key.ctrl && key.name === "c") return "ctrl-c"
   if (key.name === "space") return " "
   if (key.name === "return") return "enter"
   if (key.name === "newline") return "enter"
   if (key.sequence === "\r" || key.sequence === "\n") return "enter"
+  if (key.shift && key.name === "j") return "J"
+  if (key.shift && key.name === "k") return "K"
   return key.name ?? key.sequence ?? ""
 }
