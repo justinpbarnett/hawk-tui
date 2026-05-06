@@ -4,12 +4,63 @@ import type { AppState } from "./state.js"
 
 export interface ViewLine { text: string; kind: "repo" | "file" | "hunk" | "add" | "remove" | "context" | "comment" | "placeholder" | "status"; sourceRow?: number }
 export interface ViewModel { main: ViewLine[]; sidebarTitle?: string; sidebar: ViewLine[]; status: string }
+export interface ReviewScreen { branch: string; fileCount: number; added: number; removed: number; title: string; cards: FileCard[]; sidebarTitle?: string; sidebar: ViewLine[]; status: string }
+export interface FileCard { path: string; added: number; removed: number; rows: CodeLine[] }
+export interface CodeLine { number?: number; text: string; kind: "add" | "remove" | "context" | "comment" | "ellipsis"; sourceRow?: number }
 
 export function buildView(engine: ReviewEngine, state: AppState): ViewModel {
   const main = state.mode === "help" ? helpLines() : diffLines(engine, state)
   const sidebar = state.sidebar ? fileSidebar(engine) : state.mode === "comments" ? commentSidebar(engine) : []
   const sidebarTitle = state.sidebar ? "Files" : state.mode === "comments" ? "Comments" : undefined
   return { main, sidebarTitle, sidebar, status: `${engine.document.rows.length} rows | ${state.status}` }
+}
+
+export function buildReviewScreen(engine: ReviewEngine, state: AppState): ReviewScreen {
+  const cards = fileCards(engine, state)
+  const totals = cards.reduce((acc, card) => ({ added: acc.added + card.added, removed: acc.removed + card.removed }), { added: 0, removed: 0 })
+  const sidebar = state.sidebar ? fileSidebar(engine) : state.mode === "comments" ? commentSidebar(engine) : []
+  const sidebarTitle = state.sidebar ? "Files" : state.mode === "comments" ? "Comments" : undefined
+  return {
+    branch: "main",
+    title: "↔  Uncommitted changes",
+    fileCount: cards.length,
+    added: totals.added,
+    removed: totals.removed,
+    cards,
+    sidebar,
+    sidebarTitle,
+    status: state.status || "j/k changed lines • o comment • y copy • ? help",
+  }
+}
+
+function fileCards(engine: ReviewEngine, state: AppState): FileCard[] {
+  const cards: FileCard[] = []
+  let current: FileCard | undefined
+  for (const [index, row] of engine.document.rows.entries()) {
+    if (row.kind === "file") {
+      current = { path: row.path, added: row.added, removed: row.removed, rows: [] }
+      cards.push(current)
+    } else if (current && row.kind === "line") {
+      current.rows.push({
+        number: row.line.kind === "remove" ? row.line.oldLine : row.line.newLine ?? row.line.oldLine,
+        text: row.line.text,
+        kind: row.line.kind,
+        sourceRow: index,
+      })
+      if (state.mode === "editing" && index === state.cursor) {
+        current.rows.push(...commentCodeLines(state.editBuffer || "Type comment here. Esc saves."))
+      }
+    } else if (current && row.kind === "commentGhost") {
+      current.rows.push(...commentCodeLines(row.body))
+    } else if (current && row.kind === "placeholder") {
+      current.rows.push({ text: row.text, kind: "ellipsis" })
+    }
+  }
+  return cards
+}
+
+function commentCodeLines(body: string): CodeLine[] {
+  return body.split(/\r?\n/).map((line, i) => ({ text: `${i === 0 ? "💬 " : "   "}${line}`, kind: "comment" }))
 }
 
 function diffLines(engine: ReviewEngine, state: AppState): ViewLine[] {

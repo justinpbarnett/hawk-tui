@@ -5,7 +5,7 @@ import type { RepoDiff } from "../core/model.js"
 import { defaultSession, upsertComment, anchorForLine } from "../core/session.js"
 import { ReviewDocument } from "../core/document.js"
 import { defaultAppState, handleKey } from "./state.js"
-import { buildView } from "./view.js"
+import { buildReviewScreen, buildView } from "./view.js"
 
 test("comment editing is inline and multiline in the view", async () => {
   const engine = fixtureEngine()
@@ -36,6 +36,18 @@ test("c toggles the comment sidebar and e opens a side-by-side file sidebar", as
   assert.equal(view.sidebarTitle, "Files")
   assert.ok(view.main.some((line) => line.text.includes("+x")))
   assert.ok(view.sidebar.some((line) => line.text.includes("a.ts")))
+})
+
+test("review screen groups rows into GitHub-like file cards", () => {
+  const engine = fixtureEngine()
+  const screen = buildReviewScreen(engine, defaultAppState())
+
+  assert.equal(screen.branch, "main")
+  assert.equal(screen.fileCount, 1)
+  assert.equal(screen.added, 1)
+  assert.equal(screen.removed, 1)
+  assert.equal(screen.cards[0]?.path, "a.ts")
+  assert.deepEqual(screen.cards[0]?.rows.map((row) => row.kind), ["add", "remove"])
 })
 
 test("y exports uncopied comments through the supplied writer", async () => {
