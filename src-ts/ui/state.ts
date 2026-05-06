@@ -28,11 +28,11 @@ export async function handleKey(state: AppState, key: string, engine: ReviewEngi
   }
 
   switch (key) {
-    case "j": next.cursor = engine.document.nextChangedLineAfter(next.cursor) ?? next.cursor; break
-    case "k": next.cursor = engine.document.prevChangedLineBefore(next.cursor) ?? next.cursor; break
+    case "j": next.cursor = engine.document.nextChangedLineAfter(next.cursor, next.collapsedFiles) ?? next.cursor; break
+    case "k": next.cursor = engine.document.prevChangedLineBefore(next.cursor, next.collapsedFiles) ?? next.cursor; break
     case "J":
     case "tab": next.cursor = engine.document.nextHunkAfter(next.cursor) ?? next.cursor; break
-    case "K": next.cursor = prevHunk(engine, next.cursor) ?? next.cursor; break
+    case "K": next.cursor = engine.document.prevHunkBefore(next.cursor) ?? next.cursor; break
     case "o": startEditing(next, engine); break
     case "enter": toggleCurrentFile(next, engine); break
     case "h": collapseCurrentFile(next, engine); break
@@ -106,12 +106,6 @@ function currentFile(engine: ReviewEngine, cursor: number): string | undefined {
     if (row?.kind === "line" || row?.kind === "hunk") return row.file
   }
   return undefined
-}
-
-function prevHunk(engine: ReviewEngine, cursor: number): number | undefined {
-  const indices = engine.document.rows.flatMap((row, i) => row.kind === "hunk" ? [i] : [])
-  const before = indices.filter((i) => i < cursor)
-  return before.at(-1) ?? indices.at(-1)
 }
 
 export function keyName(key: { name?: string; sequence?: string; ctrl?: boolean }): string {

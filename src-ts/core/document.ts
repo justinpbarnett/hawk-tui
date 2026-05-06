@@ -50,19 +50,27 @@ export class ReviewDocument {
     return row?.kind === "line" ? anchorForLine(row.repo, row.file, row.hunk, row.line) : undefined
   }
 
-  nextChangedLineAfter(cursor: number): number | undefined {
-    return wrapFind(this.changedLines(), (i) => i > cursor)
+  nextChangedLineAfter(cursor: number, collapsedFiles: string[] = []): number | undefined {
+    return wrapFind(this.navigableLines(collapsedFiles), (i) => i > cursor)
   }
-  prevChangedLineBefore(cursor: number): number | undefined {
-    const lines = this.changedLines().reverse()
+  prevChangedLineBefore(cursor: number, collapsedFiles: string[] = []): number | undefined {
+    const lines = this.navigableLines(collapsedFiles).reverse()
     return lines.find((i) => i < cursor) ?? lines.at(-1)
   }
   nextHunkAfter(cursor: number): number | undefined {
     return wrapFind(this.hunks(), (i) => i > cursor)
   }
+  prevHunkBefore(cursor: number): number | undefined {
+    const hunks = this.hunks().reverse()
+    return hunks.find((i) => i < cursor) ?? hunks.at(-1)
+  }
 
-  private changedLines(): number[] {
-    return this.rows.flatMap((row, i) => row.kind === "line" && (row.line.kind === "add" || row.line.kind === "remove") ? [i] : [])
+  private navigableLines(collapsedFiles: string[]): number[] {
+    return this.rows.flatMap((row, i) => {
+      if (row.kind === "file" && collapsedFiles.includes(row.path)) return [i]
+      if (row.kind === "line" && !collapsedFiles.includes(row.file) && (row.line.kind === "add" || row.line.kind === "remove")) return [i]
+      return []
+    })
   }
   private hunks(): number[] {
     return this.rows.flatMap((row, i) => row.kind === "hunk" ? [i] : [])

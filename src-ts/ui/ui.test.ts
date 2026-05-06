@@ -64,7 +64,39 @@ test("review screen groups rows into GitHub-like file cards", () => {
   assert.equal(screen.removed, 1)
   assert.equal(screen.cards[0]?.path, "a.ts")
   assert.equal(screen.cards[0]?.collapsed, false)
+  assert.equal(screen.cards[0]?.sourceRow, 1)
   assert.deepEqual(screen.cards[0]?.rows.map((row) => row.kind), ["add", "remove"])
+})
+
+test("collapsed files are navigated by file header instead of hidden lines", async () => {
+  const engine = fixtureEngine()
+  let state = defaultAppState()
+  state.cursor = 3
+  state = await handleKey(state, "h", engine)
+
+  state = await handleKey(state, "j", engine)
+  assert.equal(state.cursor, 1)
+  state = await handleKey(state, "k", engine)
+  assert.equal(state.cursor, 1)
+})
+
+test("shift J and shift K jump to next and previous hunks", async () => {
+  const engine = fixtureEngine()
+  let state = defaultAppState()
+
+  state = await handleKey(state, "J", engine)
+  assert.equal(engine.document.rows[state.cursor]?.kind, "hunk")
+  state = await handleKey(state, "K", engine)
+  assert.equal(engine.document.rows[state.cursor]?.kind, "hunk")
+})
+
+test("question mark switches to a help view", async () => {
+  const engine = fixtureEngine()
+  let state = await handleKey(defaultAppState(), "?", engine)
+  const view = buildReviewScreen(engine, state)
+  assert.equal(state.mode, "help")
+  assert.equal(buildView(engine, state).main[0]?.text, "Hawk help")
+  assert.equal(view.cards.length, 1)
 })
 
 test("h and l collapse and expand the current file card", async () => {

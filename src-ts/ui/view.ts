@@ -5,7 +5,7 @@ import type { AppState } from "./state.js"
 export interface ViewLine { text: string; kind: "repo" | "file" | "hunk" | "add" | "remove" | "context" | "comment" | "placeholder" | "status"; sourceRow?: number }
 export interface ViewModel { main: ViewLine[]; sidebarTitle?: string; sidebar: ViewLine[]; status: string }
 export interface ReviewScreen { branch: string; fileCount: number; added: number; removed: number; title: string; cards: FileCard[]; sidebarTitle?: string; sidebar: ViewLine[]; status: string }
-export interface FileCard { path: string; added: number; removed: number; collapsed: boolean; rows: CodeLine[] }
+export interface FileCard { path: string; added: number; removed: number; collapsed: boolean; sourceRow: number; rows: CodeLine[] }
 export interface CodeLine { number?: number; text: string; kind: "add" | "remove" | "context" | "comment" | "ellipsis"; sourceRow?: number }
 
 export function buildView(engine: ReviewEngine, state: AppState): ViewModel {
@@ -38,7 +38,7 @@ function fileCards(engine: ReviewEngine, state: AppState): FileCard[] {
   let current: FileCard | undefined
   for (const [index, row] of engine.document.rows.entries()) {
     if (row.kind === "file") {
-      current = { path: row.path, added: row.added, removed: row.removed, collapsed: state.collapsedFiles.includes(row.path), rows: [] }
+      current = { path: row.path, added: row.added, removed: row.removed, collapsed: state.collapsedFiles.includes(row.path), sourceRow: index, rows: [] }
       cards.push(current)
     } else if (current?.collapsed) {
       continue

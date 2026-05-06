@@ -1,6 +1,6 @@
 import { Box, Text, createCliRenderer } from "@opentui/core"
 import { ReviewEngine } from "./core/engine.js"
-import { buildReviewScreen, type CodeLine, type FileCard, type ViewLine } from "./ui/view.js"
+import { buildReviewScreen, buildView, type CodeLine, type FileCard, type ViewLine } from "./ui/view.js"
 import { defaultAppState, handleKey, keyName } from "./ui/state.js"
 import { writePromptWithFallback } from "./ui/clipboard.js"
 
@@ -28,6 +28,10 @@ function render() {
     renderer.root.remove("app")
   } catch {}
   const screen = buildReviewScreen(engine, state)
+  if (state.mode === "help") {
+    renderer.root.add(helpScreen())
+    return
+  }
   const main = Box(
     { flexGrow: screen.sidebar.length ? 7 : 1, flexDirection: "column", gap: 1 },
     topBar(screen),
@@ -49,6 +53,14 @@ renderer.keyInput.on("keypress", async (key) => {
 
 render()
 
+function helpScreen() {
+  const view = buildView(engine, state)
+  return Box(
+    { id: "app", width: "100%", height: "100%", flexDirection: "column", border: true, borderStyle: "rounded", borderColor: theme.border, title: "Hawk help" },
+    ...view.main.map((line) => Text({ content: `  ${line.text}`, fg: theme.text, wrapMode: "word" })),
+  )
+}
+
 function topBar(screen: ReturnType<typeof buildReviewScreen>) {
   return Box(
     { height: 2, flexDirection: "row" },
@@ -63,7 +75,7 @@ function cardBox(card: FileCard) {
   return Box(
     { flexDirection: "column", border: true, borderStyle: "rounded", borderColor: theme.border },
     fileHeader(card),
-    ...(card.collapsed ? [Text({ content: "    ⋯ collapsed — press l to expand", fg: theme.muted })] : card.rows.slice(0, 18).map(codeLineBox)),
+    ...(card.collapsed ? [Text({ content: "    ⋯ collapsed — press l to expand", fg: theme.muted, bg: state.cursor === card.sourceRow ? theme.selectedBg : undefined })] : card.rows.slice(0, 18).map(codeLineBox)),
     Text({ content: card.collapsed ? "" : "    ⌄", fg: theme.muted }),
   )
 }
@@ -71,10 +83,11 @@ function cardBox(card: FileCard) {
 function fileHeader(card: FileCard) {
   return Box(
     { height: 2, flexDirection: "row" },
-    Text({ content: `  ${card.collapsed ? "›" : "⌄"}  ${card.path}  `, fg: theme.file }),
-    Text({ content: ` +${card.added} `, fg: theme.green }),
-    Text({ content: "•", fg: theme.muted }),
-    Text({ content: ` -${card.removed} `, fg: theme.red }),
+    Text({ content: state.cursor === card.sourceRow ? "▌" : " ", fg: theme.green, bg: state.cursor === card.sourceRow ? theme.selectedBg : undefined }),
+    Text({ content: ` ${card.collapsed ? "›" : "⌄"}  ${card.path}  `, fg: theme.file, bg: state.cursor === card.sourceRow ? theme.selectedBg : undefined }),
+    Text({ content: ` +${card.added} `, fg: theme.green, bg: state.cursor === card.sourceRow ? theme.selectedBg : undefined }),
+    Text({ content: "•", fg: theme.muted, bg: state.cursor === card.sourceRow ? theme.selectedBg : undefined }),
+    Text({ content: ` -${card.removed} `, fg: theme.red, bg: state.cursor === card.sourceRow ? theme.selectedBg : undefined }),
   )
 }
 
@@ -86,7 +99,7 @@ function codeLineBox(line: CodeLine) {
     Text({ content: selected ? "▌" : " ", fg: theme.green, bg }),
     Text({ content: `${line.number ?? ""}`.padStart(4), fg: selected ? theme.text : theme.muted, bg }),
     Text({ content: "  ", bg }),
-    Text({ content: line.text, fg: selected ? theme.text : fgLine(line), bg, truncate: true }),
+    Text({ content: line.text, fg: selected ? theme.text : fgLine(line), bg, wrapMode: "word" }),
   )
 }
 
