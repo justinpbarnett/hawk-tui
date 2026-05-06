@@ -2,6 +2,7 @@ import { Box, Text, createCliRenderer } from "@opentui/core"
 import { ReviewEngine } from "./core/engine.js"
 import { buildView, type ViewLine } from "./ui/view.js"
 import { defaultAppState, handleKey, keyName } from "./ui/state.js"
+import { writePromptWithFallback } from "./ui/clipboard.js"
 
 const renderer = await createCliRenderer({ exitOnCtrlC: false })
 const engine = new ReviewEngine()
@@ -22,7 +23,7 @@ function render() {
 
 renderer.keyInput.on("keypress", async (key) => {
   state = await handleKey(state, keyName(key), engine, {
-    write: async (text) => renderer.copyToClipboardOSC52(text) ? "osc52" : "terminal clipboard unavailable",
+    write: (text) => writePromptWithFallback(renderer, text),
   })
   if (state.quit) renderer.destroy()
   else render()
