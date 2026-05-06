@@ -2,7 +2,24 @@
 
 Hawk TUI is a local, keyboard-first code review TUI for inspecting Git working-tree changes and exporting line-specific review comments as an AI-ready prompt.
 
-## Development
+## TypeScript rewrite
+
+The TypeScript rewrite lives in `src-ts/`. Core review behavior runs on Node; the OpenTUI shell uses `@opentui/core` and currently requires Bun.
+
+```sh
+npm install
+npm test
+npm run typecheck
+npm run hawk -- --no-tui
+```
+
+OpenTUI prototype:
+
+```sh
+bun src-ts/opentui.ts
+```
+
+## Existing Rust implementation
 
 ```sh
 cargo test

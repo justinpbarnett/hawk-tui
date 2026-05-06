@@ -1,0 +1,22 @@
+{
+  "name": "hawk-tui",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "hawk-ts": "./src-ts/cli.ts"
+  },
+  "scripts": {
+    "test": "node --import tsx --test 'src-ts/**/*.test.ts'",
+    "typecheck": "tsc --noEmit",
+    "hawk": "tsx src-ts/cli.ts",
+    "hawk:opentui": "bun src-ts/opentui.ts"
+  },
+  "dependencies": {
+    "@opentui/core": "^0.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
